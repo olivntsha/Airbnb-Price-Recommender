@@ -1,0 +1,338 @@
+---
+title: "Seattle Model"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+```{r}
+library(data.table)
+library(ggplot2)
+library(stargazer)
+library(VIF)
+library(lfe)
+
+data = fread("Cleaned Full Dataset Merged.csv")
+head(data)
+nrow(data)
+
+
+#Make boolean
+data$estimated_occupancy_per_month <- (data$reviews_per_month * 2)
+data[data=='f'] <- 0
+data[data=='t'] <- 1
+head(data)
+
+sum(is.na(data$price))
+
+
+```
+
+```{r}
+#Get Rid of Outliers
+avg = mean(data$price)
+sdev = sd(data$price)
+data = data[data$price < (avg + (2*sdev))]
+data = data [reviews_per_month > 1]
+
+```
+
+```{r}
+##Summary Stats
+#Price Plot
+hist(data$price,xlab = "Price",col = "blue",border = "green", breaks = 20)
+
+#Room Type
+counts <- table(data$room_type)
+barplot(counts, main="Room Type", 
+   xlab="Count", col=c("lightblue"))
+
+#Cancellation Policy
+counts <- table(data$cancellation_policy)
+barplot(counts, main="Cancellation Policy", 
+   xlab="Count", col=c("lightblue"))
+
+#Reviews Per Month
+hist(data$reviews_per_month,xlab = "Reviews",col = "blue",border = "green", breaks = 20)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+```
+
+```{r}
+---
+title: "Seattle Model"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+```{r}
+
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+##Summary Stats
+#Price Plot
+hist(data$price,xlab = "Price",col = "blue",border = "green", breaks = 20)
+
+#Room Type
+counts <- table(data$room_type)
+barplot(counts, main="Room Type", 
+   xlab="Count", col=c("lightblue"))
+
+#Prop Type
+counts <- table(data$property_type)
+barplot(counts, main="Property Type", 
+   xlab="Count", col=c("lightblue"))
+
+#Price by room_type
+room_prices = aggregate(data$price, by=list(Property_Type=data$room_type), mean)
+barplot(room_prices$x, main="Room Type", 
+   xlab="Count", names.arg = room_prices$Property_Type, col=c("lightblue"))
+
+#Price by prop_type
+prop_prices = aggregate(data$price, by=list(Property_Type=data$property_type), mean)
+barplot(prop_prices$x, main="Property Type", 
+   xlab="Propert Type", names.arg = prop_prices$Property_Type, col=c("lightblue"))
+
+
+data
+
+#Cancellation Policy
+counts <- table(data$cancellation_policy)
+barplot(counts, main="Cancellation Policy", 
+   xlab="Count", col=c("lightblue"))
+
+table(data$property_type)
+
+#Reviews Per Month
+hist(data$reviews_per_month,xlab = "Reviews",col = "blue",border = "green", breaks = 20)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+head(data)
+
+data$price = data$price + 1
+
+reg1 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month, na.action=na.exclude, data = data)
+
+reg2 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating + square_feet + reviews_per_month, na.action=na.exclude, data = data)
+
+###Don't use Square_Feet, almost all observations are null. 
+
+reg3 = lm(formula = price ~ beds + bathrooms + accommodates + review_scores_rating+ reviews_per_month, na.action=na.exclude, data = data)
+
+stargazer(reg1,reg3, type='text')
+
+unique(data$cancellation_policy)
+```
+
+```{r}
+
+
+
+```
+
+``
+```{r}
+
+```
+
+
+```{r}
+reg4 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified, na.action=na.exclude, data = data)
+
+reg5 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified + room_type, na.action=na.exclude, data = data)
+
+reg6 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified + room_type + cancellation_policy, na.action=na.exclude, data = data)
+
+reg7 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified + room_type + cancellation_policy + Wifi + TV, na.action=na.exclude, data = data)
+
+reg8 = lm(formula = price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified + room_type + Wifi + TV + Pets, na.action=na.exclude, data = data)
+
+
+reg9 = lm(formula = log(price) ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified + room_type + Wifi + TV + Pets, na.action=na.exclude, data = data)
+## Base category is "Flexible" cancellation policy
+
+
+##Fixed effects on Zipcode
+ind_fix_lfe = felm( price ~ bedrooms + bathrooms + accommodates + review_scores_rating+ reviews_per_month + host_is_superhost + host_identity_verified + room_type + Wifi + TV + Pets | zipcode, data=data)
+
+stargazer(reg8, reg9,ind_fix_lfe, type='text')
+ ```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+```
+
+``
+```{r}
+
+```
+
+```{r}
+install.packages('caret')
+install.packages('mlbench')
+install.packages('munsell')
+install.packages('ranger')
+install.packages('glmnet')
+install.packages('bit64')
+install.packages('dummies')
+install.packages('fastDummies')
+library(ranger)
+library(caret)
+library(mlbench)
+library(munsell)
+library(glmnet)
+library(bit64)
+library(dummies)
+library(fastDummies)
+control <- trainControl(method='repeatedcv', number=10, repeats=3)
+metric <- 'RMSE'
+
+#Numeric cols only 
+
+#get.dummy( data, 'city' )
+#data
+#d = dummy_cols(data$city)
+
+
+#manually combine dataset with city dums
+#write.csv(d,"C:/Users/Jsins/Documents/Marketing Analytics/citydum.csv", row.names = FALSE)
+#write.csv(data,"C:/Users/Jsins/Documents/Marketing Analytics/cities.csv", row.names = FALSE)
+
+data = fread("all cities with dums.csv")
+
+
+
+mldata <- unlist(lapply(data, is.numeric))  
+
+numerics = data[ , ..mldata]
+
+numerics
+
+#drop these
+drops <- c("Wifi","Beach","host_id","id","zipcode","V1", "square_feet","security_deposit","square_feet","cleaning_fee","security_deposit","host_response_rate")
+#create subset
+sub <- numerics[ , !(names(numerics) %in% drops)]
+
+sub
+
+
+cleaned = numerics[,..sub]
+cleaned
+
+cleaned = na.exclude(cleaned)
+
+
+
+set.seed(101)
+sample <- createDataPartition(cleaned$price, p=0.80, list = FALSE)
+train <- cleaned[sample,]
+test <- cleaned[-sample,]
+
+
+
+#KNN - not sure if we'll do this...
+## Don't run, it takes 
+
+fit.knn <- train(price~., data=train, method='knn', metric=metric, 
+                    preProc=c('center', 'scale'), trControl=control)
+
+fit.knn
+
+
+#valid_pred <- predict(fit.knn,test)
+#train_pred <- predict(fit.knn,train)
+
+
+#train
+
+#mean(valid_pred - test$price)
+#mean(train_pred - train$price)
+
+
+#Random Forrest
+
+crm_DT = cleaned[runif(.N)<.05]
+crm_DT[, training_sample:= rbinom(nrow(crm_DT), 1, 0.5)]
+fit_rf =ranger(price~.-training_sample,data = crm_DT[training_sample==1],num.trees = 1000,seed = 204)
+
+#OLS
+fit_OLS =lm(price~.-training_sample,data = crm_DT[training_sample==1])
+summary_OLS =summary(fit_OLS)
+results =data.table(input   =rownames(summary_OLS$coefficients),est_OLS = summary_OLS$coefficients[, 1],p_OLS   = summary_OLS$coefficients[, 4])
+
+#LASSO
+X =model.matrix(price~0+.-training_sample,data = crm_DT[training_sample==1])
+y = crm_DT[training_sample==1, price]
+fit_LASSO =cv.glmnet(x = X, y = y, alpha = 1.0)
+results[, est_LASSO:= coef(fit_LASSO, s = "lambda.min")[,1]]
+
+#Results
+table(results, digits = 4)
+
+#Model Validation
+predict_DT = crm_DT[training_sample==0]
+predict_DT[, y_OLS:= predict(fit_OLS, newdata = predict_DT)]
+X_new =model.matrix(price~0+.-training_sample,data = crm_DT[training_sample==0])
+predict_DT[, y_LASSO:= predict(fit_LASSO, newx = X_new, s = "lambda.min")]
+predict_ranger =predict(fit_rf, data = predict_DT)
+predict_DT[, y_rf:=predict_ranger$predictions]
+
+
+#Mean-squared errors
+mse_OLS =mean((predict_DT$y_OLS-predict_DT$price)^2)
+mse_LASSO =mean((predict_DT$y_LASSO-predict_DT$price)^2)
+mse_rf    =mean((predict_DT$y_rf-predict_DT$price)^2)
+cat(mse_OLS, mse_LASSO, mse_rf, "\n")
+
+ggplot(predict_DT[price>0],aes(x = y_OLS, y = price))+geom_point(shape = 21, color = "gray30", fill = "hotpink",size = 2, stroke = 0.5, alpha = 0.25)+geom_smooth(method=lm, color = "purple")+theme_bw()
+
+ggplot(predict_DT[price>0],aes(x = y_LASSO, y = price))+geom_point(shape = 21, color = "gray30", fill = "hotpink",size = 2, stroke = 0.5, alpha = 0.25)+geom_smooth(method=lm, color = "purple")+theme_bw()
+
+
+ggplot(predict_DT[price>0],aes(x = y_rf, y = price))+geom_point(shape = 21, color = "gray30", fill = "hotpink",size = 2, stroke = 0.5, alpha = 0.25)+geom_smooth(method=lm, color = "purple")+theme_bw()
+
+mse_decomp =mean((predict_DT$y_decomp-predict_DT$price)^2)
+cat(mse_OLS, mse_LASSO, mse_rf, "\n")
+
+```
+
